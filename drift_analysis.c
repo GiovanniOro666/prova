@@ -65,25 +65,47 @@ void perform_drift_analysis(SignalData *top, SignalData *base,
     
     printf("ANALISI POST-TRIGGER...\n");
     
-    // Integrazione e analisi
-    for (int i = start; i < end && !results->alarm_triggered; i++) {
-        if (i > start) {
-            // Integra top
-            integrate_to_velocity(top->acc_hp, top->vel_unf, top->vel_filt,
-                                i-1, i+1, filter->dt, 
-                                filter->hp_a, filter->hp_b);
-            integrate_to_displacement(top->vel_filt, top->disp,
-                                     i-1, i+1, filter->dt);
-            
-            // Integra base
-            integrate_to_velocity(base->acc_hp, base->vel_unf, base->vel_filt,
-                                i-1, i+1, filter->dt, 
-                                filter->hp_a, filter->hp_b);
-            integrate_to_displacement(base->vel_filt, base->disp,
-                                     i-1, i+1, filter->dt);
-        }
+    // ========== INTEGRAZIONE CORRETTA - COME NEL FORTRAN ==========
+    // Inizializza al trigger
+    top->vel_unf[start] = 0.0f;
+    top->vel_filt[start] = 0.0f;
+    top->disp[start] = 0.0f;
+    base->vel_unf[start] = 0.0f;
+    base->vel_filt[start] = 0.0f;
+    base->disp[start] = 0.0f;
+    
+    // Loop di integrazione sequenziale - NON chiamare funzioni che resettano!
+    for (int i = start + 1; i < end && !results->alarm_triggered; i++) {
         
-        // Calcola drift
+        // ===== INTEGRAZIONE TOP =====
+        // Integrazione trapezoidale acc -> velocità non filtrata
+        top->vel_unf[i] = top->vel_unf[i-1] + 
+                          (top->acc_hp[i-1] + top->acc_hp[i]) * 0.5f * filter->dt;
+        
+        // High-pass sulla velocità (rimuove offset)
+        top->vel_filt[i] = top->vel_unf[i] * filter->hp_b - 
+                           top->vel_unf[i-1] * filter->hp_b + 
+                           filter->hp_a * top->vel_filt[i-1];
+        
+        // Integrazione trapezoidale velocità filtrata -> spostamento
+        top->disp[i] = top->disp[i-1] + 
+                       (top->vel_filt[i-1] + top->vel_filt[i]) * 0.5f * filter->dt;
+        
+        // ===== INTEGRAZIONE BASE =====
+        // Integrazione trapezoidale acc -> velocità non filtrata
+        base->vel_unf[i] = base->vel_unf[i-1] + 
+                           (base->acc_hp[i-1] + base->acc_hp[i]) * 0.5f * filter->dt;
+        
+        // High-pass sulla velocità
+        base->vel_filt[i] = base->vel_unf[i] * filter->hp_b - 
+                            base->vel_unf[i-1] * filter->hp_b + 
+                            filter->hp_a * base->vel_filt[i-1];
+        
+        // Integrazione trapezoidale velocità filtrata -> spostamento
+        base->disp[i] = base->disp[i-1] + 
+                        (base->vel_filt[i-1] + base->vel_filt[i]) * 0.5f * filter->dt;
+        
+        // ===== CALCOLO DRIFT E ANALISI =====
         float drift_abs = top->disp[i] - base->disp[i];
         float drift_norm = drift_abs / norm_height;
         
