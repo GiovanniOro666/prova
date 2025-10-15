@@ -129,17 +129,61 @@ int get_input_unit() {
 
 int get_sampling_frequency() {
     int fs;
+    int choice;
+    
     printf("\n========== FREQUENZA CAMPIONAMENTO ==========\n");
-    printf("Frequenze supportate: 100, 128, 200 Hz\n");
-    printf("Inserisci frequenza (es. 128): ");
-    if (scanf("%d", &fs) != 1 || (fs != 100 && fs != 128 && fs != 200)) {
-        printf("⚠ Frequenza non valida, uso default: 128 Hz\n");
+    printf("  1 - Frequenza predefinita (100, 128, 200 Hz)\n");
+    printf("  2 - Frequenza personalizzata\n");
+    printf("\nSeleziona opzione (1-2): ");
+    
+    if (scanf("%d", &choice) != 1 || (choice != 1 && choice != 2)) {
+        printf("⚠ Scelta non valida, uso default: 128 Hz\n");
         // Pulisci buffer input
         int c;
         while ((c = getchar()) != '\n' && c != EOF);
         return 128;
     }
-    return fs;
+    
+    if (choice == 1) {
+        // Frequenze predefinite (con coefficienti ottimizzati)
+        printf("\nFrequenze predefinite:\n");
+        printf("  1 - 100 Hz\n");
+        printf("  2 - 128 Hz (default)\n");
+        printf("  3 - 200 Hz\n");
+        printf("\nSeleziona (1-3): ");
+        
+        int freq_choice;
+        if (scanf("%d", &freq_choice) != 1) {
+            printf("⚠ Scelta non valida, uso default: 128 Hz\n");
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF);
+            return 128;
+        }
+        
+        switch(freq_choice) {
+            case 1: return 100;
+            case 2: return 128;
+            case 3: return 200;
+            default:
+                printf("⚠ Scelta non valida, uso default: 128 Hz\n");
+                return 128;
+        }
+    } else {
+        // Frequenza personalizzata
+        printf("\n🎯 FREQUENZA PERSONALIZZATA\n");
+        printf("Inserisci frequenza in Hz (10-1000, es. 250): ");
+        
+        if (scanf("%d", &fs) != 1 || fs < 10 || fs > 1000) {
+            printf("⚠ Valore non valido (deve essere 10-1000 Hz)\n");
+            printf("  Uso default: 128 Hz\n");
+            int c;
+            while ((c = getchar()) != '\n' && c != EOF);
+            return 128;
+        }
+        
+        printf("✓ Frequenza impostata: %d Hz\n", fs);
+        return fs;
+    }
 }
 
 void print_configuration_summary(BuildingType building_type, DamageState damage_state,
